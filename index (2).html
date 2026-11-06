@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>พยากรณ์อากาศสุดหรู - Glassmorphic Rain Edition</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Kanit', 'Outfit', 'sans-serif'],
+                    },
+                    colors: {
+                        glass: {
+                            100: 'rgba(255, 255, 255, 0.07)',
+                            200: 'rgba(255, 255, 255, 0.12)',
+                            300: 'rgba(255, 255, 255, 0.2)',
+                            border: 'rgba(255, 255, 255, 0.18)',
+                        }
+                    },
+                    boxShadow: {
+                        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
+                        'glow': '0 0 25px rgba(59, 130, 246, 0.5)',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Glassmorphism Classes */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.06);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-card:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.3);
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(0, 0, 0, 0.25);
+        }
+
+        .glass-input {
+            background: rgba(15, 23, 42, 0.4);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .glass-input:focus {
+            background: rgba(15, 23, 42, 0.65);
+            border-color: #60a5fa;
+            box-shadow: 0 0 15px rgba(96, 165, 250, 0.3);
+        }
+
+        /* Canvas Overlay */
+        #rainCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        /* Lightning Flash Effect */
+        .lightning-flash {
+            animation: flash 6s infinite;
+        }
+        @keyframes flash {
+            0%, 95%, 98% { opacity: 0; }
+            96% { opacity: 0.8; }
+            97% { opacity: 0.2; }
+            99% { opacity: 0.9; }
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans relative overflow-x-hidden select-none">
+
+    <!-- Atmospheric Animated Background Glows -->
+    <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+        <div class="absolute -top-40 -left-40 w-96 h-96 bg-blue-600/30 rounded-full blur-[120px]"></div>
+        <div class="absolute top-1/3 -right-20 w-[500px] h-[500px] bg-indigo-600/20 rounded-full blur-[150px]"></div>
+        <div class="absolute -bottom-20 left-1/3 w-[600px] h-[600px] bg-cyan-600/20 rounded-full blur-[160px]"></div>
+        <div class="lightning-flash absolute inset-0 bg-blue-200/10 pointer-events-none"></div>
+    </div>
+
+    <!-- Rain FX Canvas Container -->
+    <canvas id="rainCanvas"></canvas>
+
+    <!-- Main Content Wrapper -->
+    <div class="relative z-20 min-h-screen flex flex-col justify-between p-4 sm:p-6 md:p-10 max-w-7xl mx-auto">
+        
+        <!-- HEADER / NAVIGATION -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-4 mb-8">
+            <div class="flex items-center gap-3">
+                <div class="p-2.5 glass-card rounded-2xl bg-blue-500/10 text-blue-400 border-blue-400/30">
+                    <i data-lucide="cloud-rain" class="w-8 h-8 animate-pulse"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-wide bg-clip-text text-transparent bg-gradient-to-r from-blue-200 via-indigo-100 to-white">
+                        ATMOS<span class="text-blue-400 font-light">RAIN</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">ระบบพยากรณ์อากาศเรียลไทม์ Glassmorphic</p>
+                </div>
+            </div>
+
+            <!-- SEARCH & CONTROLS -->
+            <div class="flex flex-wrap items-center justify-center gap-3 w-full md:w-auto">
+                <form id="searchForm" class="relative flex-1 md:w-80">
+                    <input 
+                        type="text" 
+                        id="searchInput" 
+                        placeholder="ค้นหาเมือง (เช่น กรุงเทพ, Tokyo, London)..." 
+                        class="w-full glass-input text-sm text-slate-100 placeholder-slate-400 rounded-2xl py-3 pl-11 pr-4 outline-none transition-all duration-300"
+                    >
+                    <i data-lucide="search" class="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5"></i>
+                    <button type="submit" class="hidden">ค้นหา</button>
+                </form>
+
+                <!-- Rain Toggle Toggle Button -->
+                <button 
+                    id="toggleRainBtn" 
+                    title="เปิด/ปิด เอฟเฟกต์ฝนตก"
+                    class="glass-card flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-medium text-blue-300 border-blue-400/30 hover:text-white"
+                >
+                    <i data-lucide="cloud-drizzle" class="w-4 h-4 text-blue-400"></i>
+                    <span id="rainBtnText">เอฟเฟกต์ฝน: เปิด</span>
+                </button>
+
+                <!-- API Key Config Button -->
+                <button 
+                    id="apiConfigBtn"
+                    title="ตั้งค่า API Key"
+                    class="glass-card p-3 rounded-2xl text-slate-300 hover:text-white"
+                >
+                    <i data-lucide="settings" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- MAIN WEATHER DISPLAY WORKSPACE -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-6 my-auto">
+            
+            <!-- LEFT COLUMN: Main Weather Highlight (7 Cols) -->
+            <section class="lg:col-span-7 flex flex-col justify-between glass-panel rounded-3xl p-6 md:p-8 relative overflow-hidden shadow-glass">
+                <div class="absolute -right-16 -top-16 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+                <div>
+                    <!-- Location & Date -->
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <div class="flex items-center gap-2 text-blue-300 font-medium tracking-wide">
+                                <i data-lucide="map-pin" class="w-4 h-4"></i>
+                                <span id="cityName" class="text-lg">กรุงเทพมหานคร</span>
+                                <span id="countryCode" class="text-xs bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full border border-blue-400/30">TH</span>
+                            </div>
+                            <p id="currentDate" class="text-xs text-slate-400 mt-1">วันศุกร์ที่ 6 พฤศจิกายน 2026</p>
+                        </div>
+                        <div class="glass-card px-3 py-1.5 rounded-full text-xs text-emerald-400 border-emerald-500/30 flex items-center gap-1.5">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                            <span id="statusTag">อัปเดตสด</span>
+                        </div>
+                    </div>
+
+                    <!-- Main Temperature Display -->
+                    <div class="my-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div>
+                            <div class="flex items-baseline">
+                                <span id="tempMain" class="text-7xl sm:text-8xl font-extrabold tracking-tight text-white">27</span>
+                                <span class="text-4xl text-blue-300 font-light ml-1">°C</span>
+                            </div>
+                            <p id="weatherDesc" class="text-xl text-blue-200 capitalize mt-2 flex items-center gap-2 font-light">
+                                <i data-lucide="cloud-rain" class="w-6 h-6 text-blue-400"></i>
+                                <span>ฝนตกปานกลาง</span>
+                            </p>
+                        </div>
+
+                        <!-- Weather Big Graphic Icon -->
+                        <div id="weatherIconContainer" class="p-6 glass-card rounded-3xl bg-blue-500/10 border-blue-400/20 text-blue-300 flex items-center justify-center self-center sm:self-auto">
+                            <i data-lucide="cloud-rain-wind" class="w-20 h-20 stroke-1 drop-shadow-glow"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Secondary Weather Stats Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-6 border-t border-slate-700/50">
+                    <div class="glass-card p-3.5 rounded-2xl">
+                        <div class="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                            <i data-lucide="droplets" class="w-4 h-4 text-cyan-400"></i>
+                            <span>ความชื้น</span>
+                        </div>
+                        <span id="humidityVal" class="text-lg font-semibold text-slate-100">88%</span>
+                    </div>
+
+                    <div class="glass-card p-3.5 rounded-2xl">
+                        <div class="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                            <i data-lucide="wind" class="w-4 h-4 text-blue-400"></i>
+                            <span>ความเร็วลม</span>
+                        </div>
+                        <span id="windSpeedVal" class="text-lg font-semibold text-slate-100">18 km/h</span>
+                    </div>
+
+                    <div class="glass-card p-3.5 rounded-2xl">
+                        <div class="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                            <i data-lucide="gauge" class="w-4 h-4 text-indigo-400"></i>
+                            <span>ความกดอากาศ</span>
+                        </div>
+                        <span id="pressureVal" class="text-lg font-semibold text-slate-100">1011 hPa</span>
+                    </div>
+
+                    <div class="glass-card p-3.5 rounded-2xl">
+                        <div class="flex items-center gap-2 text-slate-400 text-xs mb-1">
+                            <i data-lucide="eye" class="w-4 h-4 text-violet-400"></i>
+                            <span>ทัศนวิสัย</span>
+                        </div>
+                        <span id="visibilityVal" class="text-lg font-semibold text-slate-100">8.0 km</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- RIGHT COLUMN: Hourly & Weekly Forecast (5 Cols) -->
+            <section class="lg:col-span-5 flex flex-col gap-6">
+                
+                <!-- Hourly Forecast Scrollable -->
+                <div class="glass-panel rounded-3xl p-5 shadow-glass">
+                    <h3 class="text-sm font-semibold text-slate-300 mb-4 flex items-center gap-2">
+                        <i data-lucide="clock" class="w-4 h-4 text-blue-400"></i>
+                        พยากรณ์รายชั่วโมง (24 ชม.)
+                    </h3>
+                    <div id="hourlyContainer" class="flex gap-3 overflow-x-auto pb-2 pt-1 scrollbar-thin">
+                        <!-- Dynamic Hourly Cards populated by JS -->
+                    </div>
+                </div>
+
+                <!-- 7-Day Forecast Cards -->
+                <div class="glass-panel rounded-3xl p-5 shadow-glass flex-1 flex flex-col justify-between">
+                    <h3 class="text-sm font-semibold text-slate-300 mb-3 flex items-center gap-2">
+                        <i data-lucide="calendar" class="w-4 h-4 text-indigo-400"></i>
+                        พยากรณ์อากาศ 5-7 วันข้างหน้า
+                    </h3>
+                    <div id="dailyContainer" class="space-y-2.5">
+                        <!-- Dynamic Daily Rows populated by JS -->
+                    </div>
+                </div>
+
+            </section>
+        </main>
+
+        <!-- FOOTER -->
+        <footer class="mt-8 pt-4 border-t border-slate-800/80 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+            <p>© 2026 ATMOSRAIN — ออกแบบสร้างสรรค์ด้วย Glassmorphism และ Canvas FX</p>
+            <div class="flex items-center gap-4">
+                <span class="flex items-center gap-1">
+                    <span class="w-2 h-2 rounded-full bg-blue-400"></span> 
+                    เอฟเฟกต์เม็ดฝน 3D Physics Engine
+                </span>
+            </div>
+        </footer>
+    </div>
+
+    <!-- API KEY MODAL DIALOG -->
+    <div id="apiModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md opacity-0 pointer-events-none transition-all duration-300">
+        <div class="glass-panel rounded-3xl p-6 max-w-md w-full shadow-2xl border border-white/20 transform scale-95 transition-all duration-300" id="apiModalBox">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i data-lucide="key" class="w-5 h-5 text-blue-400"></i>
+                    ตั้งค่า OpenWeather API Key
+                </h3>
+                <button id="closeApiModalBtn" class="text-slate-400 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+                ระบบใช้ข้อมูลพยากรณ์จำลองสมจริง (Mock Engine) เป็นค่าเริ่มต้น คุณสามารถใส่ **OpenWeatherMap API Key** ของคุณเพื่อใช้งานข้อมูลสภาพอากาศจริงจากทั่วโลกได้ทันที
+            </p>
+            <div class="mb-4">
+                <label class="block text-xs font-medium text-slate-400 mb-1.5">OpenWeather API Key</label>
+                <input type="text" id="apiKeyInput" placeholder="กรอก API Key 32 หลักของคุณ..." class="w-full glass-input text-xs text-white rounded-xl p-3 outline-none">
+            </div>
+            <div class="flex justify-end gap-2">
+                <button id="clearApiKeyBtn" class="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white glass-card">ล้างข้อมูล</button>
+                <button id="saveApiKeyBtn" class="px-5 py-2 rounded-xl text-xs bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-glow transition-all">บันทึก & ใช้งาน</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC ENGINE -->
+    <script>
+        /* ==========================================================================
+           1. CANVAS REALISTIC RAIN EFFECT ENGINE
+           ========================================================================== */
+        const canvas = document.getElementById('rainCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let width = canvas.width = window.innerWidth;
+        let height = canvas.height = window.innerHeight;
+
+        let rainEnabled = true;
+        let raindrops = [];
+        let splashes = [];
+        let glassDrops = [];
+
+        // Resize Listener
+        window.addEventListener('resize', () => {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+            initGlassDrops();
+        });
+
+        // Raindrop Constructor
+        class Raindrop {
+            constructor() {
+                this.reset();
+            }
+
+            reset() {
+                this.x = Math.random() * width * 1.3 - width * 0.15;
+                this.y = Math.random() * -height;
+                this.length = Math.random() * 25 + 15;
+                this.speed = Math.random() * 12 + 14;
+                this.opacity = Math.random() * 0.45 + 0.2;
+                this.thickness = Math.random() * 1.5 + 0.8;
+                this.wind = 2.5; // Slate slant rain angle
+            }
+
+            update() {
+                this.y += this.speed;
+                this.x += this.wind;
+
+                // Hit ground splash condition
+                if (this.y >= height - 10) {
+                    createSplash(this.x, height - 5);
+                    this.reset();
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y);
+                ctx.lineTo(this.x + this.wind * 2, this.y + this.length);
+                ctx.strokeStyle = `rgba(186, 230, 253, ${this.opacity})`;
+                ctx.lineWidth = this.thickness;
+                ctx.lineCap = 'round';
+                ctx.stroke();
+            }
+        }
+
+        // Splash Effect Constructor
+        class Splash {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = -(Math.random() * 3 + 1);
+                this.gravity = 0.2;
+                this.opacity = 0.8;
+                this.radius = Math.random() * 1.5 + 0.5;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.opacity -= 0.04;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(186, 230, 253, ${Math.max(0, this.opacity)})`;
+                ctx.fill();
+            }
+        }
+
+        // Glass Window Water Droplet (Static Droplets on screen)
+        class GlassDrop {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.r = Math.random() * 3 + 1;
+                this.opacity = Math.random() * 0.3 + 0.1;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+                ctx.fill();
+            }
+        }
+
+        // Initialize Droplets Array
+        const RAIN_COUNT = 160;
+        for (let i = 0; i < RAIN_COUNT; i++) {
+            raindrops.push(new Raindrop());
+        }
+
+        function initGlassDrops() {
+            glassDrops = [];
+            for (let i = 0; i < 45; i++) {
+                glassDrops.push(new GlassDrop());
+            }
+        }
+        initGlassDrops();
+
+        function createSplash(x, y) {
+            if (splashes.length < 50 && Math.random() > 0.4) {
+                for (let i = 0; i < 3; i++) {
+                    splashes.push(new Splash(x, y));
+                }
+            }
+        }
+
+        // Animation Loop
+        function animateRain() {
+            ctx.clearRect(0, 0, width, height);
+
+            if (rainEnabled) {
+                // Draw static glass window droplets
+                glassDrops.forEach(drop => drop.draw());
+
+                // Update & Render falling rain
+                raindrops.forEach(drop => {
+                    drop.update();
+                    drop.draw();
+                });
+
+                // Update & Render Ground Splashes
+                for (let i = splashes.length - 1; i >= 0; i--) {
+                    splashes[i].update();
+                    splashes[i].draw();
+                    if (splashes[i].opacity <= 0) {
+                        splashes.splice(i, 1);
+                    }
+                }
+            }
+            requestAnimationFrame(animateRain);
+        }
+        animateRain();
+
+        // Toggle Rain Control
+        const toggleRainBtn = document.getElementById('toggleRainBtn');
+        const rainBtnText = document.getElementById('rainBtnText');
+        toggleRainBtn.addEventListener('click', () => {
+            rainEnabled = !rainEnabled;
+            rainBtnText.textContent = rainEnabled ? 'เอฟเฟกต์ฝน: เปิด' : 'เอฟเฟกต์ฝน: ปิด';
+            toggleRainBtn.classList.toggle('text-blue-300', rainEnabled);
+            toggleRainBtn.classList.toggle('text-slate-400', !rainEnabled);
+        });
+
+        /* ==========================================================================
+           2. WEATHER DATA ENGINE (SUPPORT MOCK DATA & REAL OPENWEATHER API)
+           ========================================================================== */
+        
+        let userApiKey = localStorage.getItem('atmos_weather_api_key') || '';
+
+        // Mock Weather Database for Instant Smooth Demo
+        const MOCK_WEATHER_DATABASE = {
+            'กรุงเทพมหานคร': { name: 'กรุงเทพมหานคร', country: 'TH', temp: 28, desc: 'ฝนตกปานกลาง ฟ้าครึ้ม', humidity: 86, wind: 16, pressure: 1010, icon: 'cloud-rain' },
+            'bangkok': { name: 'กรุงเทพมหานคร', country: 'TH', temp: 28, desc: 'ฝนตกปานกลาง ฟ้าครึ้ม', humidity: 86, wind: 16, pressure: 1010, icon: 'cloud-rain' },
+            'เชียงใหม่': { name: 'เชียงใหม่', country: 'TH', temp: 23, desc: 'มีหมอกและฝนปรอย', humidity: 92, wind: 9, pressure: 1014, icon: 'cloud-drizzle' },
+            'chiang mai': { name: 'เชียงใหม่', country: 'TH', temp: 23, desc: 'มีหมอกและฝนปรอย', humidity: 92, wind: 9, pressure: 1014, icon: 'cloud-drizzle' },
+            'ภูเก็ต': { name: 'ภูเก็ต', country: 'TH', temp: 29, desc: 'ฝนฟ้าคะนองกระจาย', humidity: 90, wind: 24, pressure: 1008, icon: 'cloud-lightning' },
+            'phuket': { name: 'ภูเก็ต', country: 'TH', temp: 29, desc: 'ฝนฟ้าคะนองกระจาย', humidity: 90, wind: 24, pressure: 1008, icon: 'cloud-lightning' },
+            'tokyo': { name: 'โตเกียว', country: 'JP', temp: 16, desc: 'เมฆมาก ลมพัดเย็น', humidity: 62, wind: 21, pressure: 1020, icon: 'cloudy' },
+            'โตเกียว': { name: 'โตเกียว', country: 'JP', temp: 16, desc: 'เมฆมาก ลมพัดเย็น', humidity: 62, wind: 21, pressure: 1020, icon: 'cloudy' },
+            'london': { name: 'ลอนดอน', country: 'GB', temp: 12, desc: 'ฝนตกหนักหมอกหนา', humidity: 94, wind: 28, pressure: 1005, icon: 'cloud-rain-wind' },
+            'ลอนดอน': { name: 'ลอนดอน', country: 'GB', temp: 12, desc: 'ฝนตกหนักหมอกหนา', humidity: 94, wind: 28, pressure: 1005, icon: 'cloud-rain-wind' },
+        };
+
+        // Render Current Weather UI
+        function updateWeatherUI(data) {
+            document.getElementById('cityName').textContent = data.name;
+            document.getElementById('countryCode').textContent = data.country;
+            document.getElementById('tempMain').textContent = Math.round(data.temp);
+            document.getElementById('weatherDesc').querySelector('span').textContent = data.desc;
+            document.getElementById('humidityVal').textContent = `${data.humidity}%`;
+            document.getElementById('windSpeedVal').textContent = `${data.wind} km/h`;
+            document.getElementById('pressureVal').textContent = `${data.pressure} hPa`;
+            document.getElementById('visibilityVal').textContent = `${(Math.random() * 3 + 7).toFixed(1)} km`;
+
+            // Update Main Icon dynamically
+            const iconContainer = document.getElementById('weatherIconContainer');
+            iconContainer.innerHTML = `<i data-lucide="${data.icon || 'cloud-rain'}" class="w-20 h-20 stroke-1 drop-shadow-glow"></i>`;
+            
+            // Render Forecasts
+            renderHourlyForecast();
+            renderDailyForecast();
+
+            lucide.createIcons();
+        }
+
+        // Generate Dynamic Hourly Forecast Cards
+        function renderHourlyForecast() {
+            const container = document.getElementById('hourlyContainer');
+            container.innerHTML = '';
+
+            const hours = ['12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00', '20:00', '21:00'];
+            const icons = ['cloud-rain', 'cloud-lightning', 'cloud-rain', 'cloud-drizzle', 'cloudy', 'cloud-sun', 'cloud-moon', 'cloud-rain', 'cloud-drizzle', 'cloudy'];
+            
+            hours.forEach((time, index) => {
+                const temp = 27 + Math.floor(Math.sin(index) * 3);
+                const card = document.createElement('div');
+                card.className = 'glass-card min-w-[75px] p-3 rounded-2xl flex flex-col items-center justify-between text-center gap-2 border-white/10';
+                card.innerHTML = `
+                    <span class="text-xs text-slate-400 font-medium">${time}</span>
+                    <i data-lucide="${icons[index % icons.length]}" class="w-6 h-6 text-blue-300"></i>
+                    <span class="text-sm font-bold text-white">${temp}°C</span>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Generate Dynamic 5-7 Day Forecast Rows
+        function renderDailyForecast() {
+            const container = document.getElementById('dailyContainer');
+            container.innerHTML = '';
+
+            const days = [
+                { day: 'เสาร์ (พรุ่งนี้)', desc: 'ฝนฟ้าคะนอง 70%', tempMax: 30, tempMin: 24, icon: 'cloud-lightning' },
+                { day: 'อาทิตย์', desc: 'ฝนตกปานกลาง 50%', tempMax: 29, tempMin: 25, icon: 'cloud-rain' },
+                { day: 'จันทร์', desc: 'มีเมฆเป็นส่วนมาก', tempMax: 32, tempMin: 26, icon: 'cloudy' },
+                { day: 'อังคาร', desc: 'แดดจัด มีเมฆบางส่วน', tempMax: 33, tempMin: 26, icon: 'sun' },
+                { day: 'พุธ', desc: 'ฝนตกกระจาย 40%', tempMax: 31, tempMin: 25, icon: 'cloud-drizzle' },
+            ];
+
+            days.forEach((item) => {
+                const row = document.createElement('div');
+                row.className = 'glass-card p-3 rounded-2xl flex items-center justify-between gap-3 text-xs sm:text-sm';
+                row.innerHTML = `
+                    <div class="w-28 font-medium text-slate-200">${item.day}</div>
+                    <div class="flex items-center gap-2 flex-1 text-slate-400 text-xs">
+                        <i data-lucide="${item.icon}" class="w-4 h-4 text-blue-400"></i>
+                        <span class="hidden sm:inline">${item.desc}</span>
+                    </div>
+                    <div class="flex items-center gap-2 font-semibold">
+                        <span class="text-white">${item.tempMax}°</span>
+                        <span class="text-slate-500">${item.tempMin}°</span>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // Fetch Weather Data (API or Fallback Mock)
+        async function fetchWeatherData(query) {
+            const cleanQuery = query.trim().toLowerCase();
+
+            // If user has set an OpenWeather API Key
+            if (userApiKey) {
+                try {
+                    document.getElementById('statusTag').textContent = 'กำลังดึง API...';
+                    const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(query)}&units=metric&appid=${userApiKey}&lang=th`);
+                    if (!res.ok) throw new Error('ไม่พบข้อมูลเมือง');
+                    const data = await res.json();
+                    
+                    const mapped = {
+                        name: data.name,
+                        country: data.sys.country,
+                        temp: data.main.temp,
+                        desc: data.weather[0].description,
+                        humidity: data.main.humidity,
+                        wind: Math.round(data.wind.speed * 3.6),
+                        pressure: data.main.pressure,
+                        icon: getIconFromCode(data.weather[0].icon)
+                    };
+                    document.getElementById('statusTag').textContent = 'API สด';
+                    updateWeatherUI(mapped);
+                    return;
+                } catch (err) {
+                    console.warn('API Error, falling back to mock system:', err.message);
+                }
+            }
+
+            // Fallback Mock Engine
+            document.getElementById('statusTag').textContent = 'โหมดจำลอง (Mock Engine)';
+            if (MOCK_WEATHER_DATABASE[cleanQuery]) {
+                updateWeatherUI(MOCK_WEATHER_DATABASE[cleanQuery]);
+            } else {
+                // Generate Dynamic Randomized Realistic Weather for unknown cities
+                const mockDynamic = {
+                    name: query.charAt(0).toUpperCase() + query.slice(1),
+                    country: 'WORLD',
+                    temp: Math.floor(Math.random() * 15) + 18,
+                    desc: 'ฝนตกฟ้าครึ้มกระจาย',
+                    humidity: Math.floor(Math.random() * 25) + 70,
+                    wind: Math.floor(Math.random() * 20) + 10,
+                    pressure: 1012,
+                    icon: 'cloud-rain'
+                };
+                updateWeatherUI(mockDynamic);
+            }
+        }
+
+        function getIconFromCode(code) {
+            if (code.includes('01')) return 'sun';
+            if (code.includes('02') || code.includes('03') || code.includes('04')) return 'cloudy';
+            if (code.includes('09') || code.includes('10')) return 'cloud-rain';
+            if (code.includes('11')) return 'cloud-lightning';
+            if (code.includes('13')) return 'snowflake';
+            if (code.includes('50')) return 'cloud-fog';
+            return 'cloud-drizzle';
+        }
+
+        /* ==========================================================================
+           3. UI & EVENT HANDLERS
+           ========================================================================== */
+
+        // Search Form Submit
+        document.getElementById('searchForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const val = document.getElementById('searchInput').value;
+            if (val) {
+                fetchWeatherData(val);
+            }
+        });
+
+        // Set Current Date Thai Format
+        const dateOptions = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('th-TH', dateOptions);
+
+        // API Key Modal Management
+        const apiModal = document.getElementById('apiModal');
+        const apiModalBox = document.getElementById('apiModalBox');
+        const apiConfigBtn = document.getElementById('apiConfigBtn');
+        const closeApiModalBtn = document.getElementById('closeApiModalBtn');
+        const saveApiKeyBtn = document.getElementById('saveApiKeyBtn');
+        const clearApiKeyBtn = document.getElementById('clearApiKeyBtn');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+
+        function openModal() {
+            apiKeyInput.value = userApiKey;
+            apiModal.classList.remove('opacity-0', 'pointer-events-none');
+            apiModalBox.classList.remove('scale-95');
+            apiModalBox.classList.add('scale-100');
+        }
+
+        function closeModal() {
+            apiModal.classList.add('opacity-0', 'pointer-events-none');
+            apiModalBox.classList.remove('scale-100');
+            apiModalBox.classList.add('scale-95');
+        }
+
+        apiConfigBtn.addEventListener('click', openModal);
+        closeApiModalBtn.addEventListener('click', closeModal);
+
+        saveApiKeyBtn.addEventListener('click', () => {
+            userApiKey = apiKeyInput.value.trim();
+            localStorage.setItem('atmos_weather_api_key', userApiKey);
+            closeModal();
+            fetchWeatherData(document.getElementById('cityName').textContent);
+        });
+
+        clearApiKeyBtn.addEventListener('click', () => {
+            userApiKey = '';
+            apiKeyInput.value = '';
+            localStorage.removeItem('atmos_weather_api_key');
+            closeModal();
+            fetchWeatherData(document.getElementById('cityName').textContent);
+        });
+
+        // Initialize App on Window Load
+        window.onload = () => {
+            lucide.createIcons();
+            fetchWeatherData('กรุงเทพมหานคร');
+        };
+    </script>
+</body>
+</html>
